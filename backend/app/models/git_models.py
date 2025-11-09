@@ -19,9 +19,8 @@ from sqlalchemy import (
     Float,
 )
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
-from sqlalchemy.orm import declarative_base, relationship
-
-Base = declarative_base()
+from sqlalchemy.orm import relationship
+from app.models.base import Base
 
 
 class CloneStatus(str, enum.Enum):
@@ -66,7 +65,7 @@ class GitRepository(Base):
     authors = relationship("Author", back_populates="repository", cascade="all, delete-orphan")
     ownerships = relationship("FileOwnership", back_populates="repository", cascade="all, delete-orphan")
     couplings = relationship("FileCoupling", back_populates="repository", cascade="all, delete-orphan")
-    jobs = relationship("AnalysisJob", back_populates="repository", cascade="all, delete-orphan")
+    jobs = relationship("GitAnalysisJob", back_populates="repository", cascade="all, delete-orphan")
 
 
 class GitCommit(Base):
@@ -195,8 +194,8 @@ class FileCoupling(Base):
     repository = relationship("GitRepository", back_populates="couplings")
 
 
-class AnalysisJob(Base):
-    __tablename__ = "analysis_jobs"
+class GitAnalysisJob(Base):
+    __tablename__ = "git_analysis_jobs"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     repository_id = Column(UUID(as_uuid=True), ForeignKey("git_repositories.id", ondelete="CASCADE"), nullable=False)
