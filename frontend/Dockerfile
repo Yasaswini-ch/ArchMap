@@ -10,6 +10,7 @@ RUN npm install --include=dev
 
 # Copy source and build
 COPY frontend/ ./
+RUN chmod +x node_modules/.bin/vite
 RUN npm run build
 
 # ---- Runtime (static preview) ----

@@ -44,11 +44,11 @@ EXPOSE 8000
 # Set environment variables for development mode
 ENV ENVIRONMENT=development \
     DEBUG=true
-# Ensure Python can import the backend package
-ENV PYTHONPATH=/app
+# Ensure Python can import the backend/app package as top-level 'app'
+ENV PYTHONPATH=/app/backend
 
 # Add healthcheck for container to verify FastAPI is running
 HEALTHCHECK --interval=30s --timeout=5s --retries=5 CMD curl -fsS http://localhost:8000/health || exit 1
 
 # Start FastAPI with hot reload enabled
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

@@ -1,10 +1,21 @@
-# ArchMap development stack: Neo4j, PostgreSQL, Redis, FastAPI backend, React frontend
+version: "3.9"
+
+networks:
+  archmap_net:
+
+volumes:
+  neo4j_data:
+  postgres_data:
+  redis_data:
+  frontend_build:
+
 services:
+
   neo4j:
     image: neo4j:5.12
     container_name: archmap_neo4j
     ports:
-      - "7474:7474"   # HTTP Browser
+      - "7474:7474"   # Neo4j Browser HTTP
       - "7687:7687"   # Bolt
     environment:
       - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
@@ -18,11 +29,6 @@ services:
       retries: 10
       start_period: 30s
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 1g
     networks:
       - archmap_net
 
@@ -44,11 +50,6 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: "0.75"
-          memory: 512m
     networks:
       - archmap_net
 
@@ -58,19 +59,12 @@ services:
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
     ports:
       - "6379:6379"
-    volumes:
-      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 10
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 256m
     networks:
       - archmap_net
 
@@ -82,16 +76,10 @@ services:
     env_file:
       - ./.env
     environment:
-      - NEO4J_URI=${NEO4J_URI}
-      - NEO4J_USER=${NEO4J_USER}
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
-      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT}/0
-      - VITE_API_URL=${VITE_API_URL}
-    volumes:
-      - ./backend:/app/backend:rw
-      - ./backend/app:/app/app:rw
-      - ./.env:/app/.env:ro
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     ports:
       - "8000:8000"
     depends_on:
@@ -101,17 +89,12 @@ services:
         condition: service_healthy
       neo4j:
         condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 10s
-      timeout: 5s
       retries: 10
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 1g
     networks:
       - archmap_net
 
@@ -120,34 +103,18 @@ services:
       context: .
       dockerfile: ./frontend/Dockerfile
     container_name: archmap_frontend
-    environment:
-      - VITE_API_URL=${VITE_API_URL}
-    command: ["serve", "-s", "dist", "-l", "3000"]
-    volumes:
-      - ./frontend/dist:/app/dist:ro
     ports:
       - "3000:3000"
+    env_file:
+      - ./.env
     depends_on:
       - backend
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000 >/dev/null 2>&1 || exit 1"]
-      interval: 10s
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\" "]
+      interval: 15s
       timeout: 5s
       retries: 10
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: "0.75"
-          memory: 512m
     networks:
       - archmap_net
 
-volumes:
-  neo4j_data:
-  postgres_data:
-  redis_data:
-
-networks:
-  archmap_net:
-    driver: bridge
